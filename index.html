@@ -161,6 +161,7 @@
     box-shadow:0 1px 1px rgba(33,28,21,.05) inset;
     cursor:pointer;
     user-select:none; -webkit-user-select:none;
+    -webkit-touch-callout:none;                 /* no iOS text-callout on long-press */
     transition:background .22s ease, border-color .22s ease, transform .16s ease, box-shadow .22s ease;
   }
   .cell:hover{ border-color:rgba(33,28,21,.34); }
@@ -239,7 +240,7 @@
     <div id="sections"></div>
 
     <p class="foot">
-      点空格打卡　·　双击黑格 <span class="k">撤销</span>　·　胸背满 20 进下一轮，肩腹满 3 进下一周
+      点空格打卡　·　双击黑格 <span class="k">撤销</span>　·　长按看日期　·　胸背满 20 进下一轮，肩腹满 3 进下一周
     </p>
   </div>
 
@@ -309,6 +310,57 @@
   function hideTip(){ tip.classList.remove('show'); }
   window.addEventListener('scroll', hideTip, {passive:true});
 
+  /* ---------- long-press to inspect (touch) ---------- */
+  // Desktop keeps hover; touch devices press-and-hold ~600ms to reveal the date.
+  // 600ms sits just above the OS long-press standard (~500ms) so a normal tap
+  // (打卡) is never mistaken for an inspect.
+  const LP_MS = 600, LP_MOVE = 12;
+  let lpTimer = null, lpFired = false, lpStart = null, lpHideTimer = null, lpSuppressAt = 0;
+
+  function attachLongPress(cell, id, i){
+    cell.addEventListener('touchstart', (e)=>{
+      if(e.touches.length !== 1) return;
+      const t = e.touches[0];
+      lpStart = { x:t.clientX, y:t.clientY };
+      lpFired = false;
+      clearTimeout(lpTimer);
+      clearTimeout(lpHideTimer);
+      lpTimer = setTimeout(()=>{
+        const d = cellDate(id,i);
+        if(d){
+          lpFired = true;
+          showTip(cell, d);
+          if(navigator.vibrate) navigator.vibrate(15);   // subtle haptic feedback
+        }
+      }, LP_MS);
+    }, {passive:true});
+
+    cell.addEventListener('touchmove', (e)=>{
+      if(!lpStart) return;
+      const t = e.touches[0];
+      if(Math.abs(t.clientX-lpStart.x) > LP_MOVE || Math.abs(t.clientY-lpStart.y) > LP_MOVE){
+        clearTimeout(lpTimer);          // finger moved → it's a scroll, not a long-press
+      }
+    }, {passive:true});
+
+    cell.addEventListener('touchend', (e)=>{
+      clearTimeout(lpTimer);
+      lpStart = null;
+      if(lpFired){
+        e.preventDefault();             // swallow the synthesized click → no 打卡
+        lpSuppressAt = Date.now();      // backup guard for onClick
+        clearTimeout(lpHideTimer);
+        lpHideTimer = setTimeout(hideTip, 1400);   // let the date linger, then fade
+      }
+    }, {passive:false});
+
+    cell.addEventListener('touchcancel', ()=>{
+      clearTimeout(lpTimer);
+      lpStart = null;
+      if(lpFired) hideTip();
+    });
+  }
+
   /* ---------- build DOM ---------- */
   document.getElementById('start-date').textContent = fmtDate(state.startDate);
 
@@ -344,6 +396,8 @@
       cell.addEventListener('dblclick', ()=>onDbl(s.id,i));
       cell.addEventListener('mouseenter', ()=>{ const d=cellDate(s.id,i); if(d) showTip(cell,d); else hideTip(); });
       cell.addEventListener('mouseleave', hideTip);
+      attachLongPress(cell, s.id, i);
+
       grid.appendChild(cell);
       cells.push(cell);
     }
@@ -423,6 +477,7 @@
 
   /* ---------- input ---------- */
   function onClick(id,i){
+    if(Date.now() - lpSuppressAt < 500){ return; }   // just finished a long-press inspect → don't 打卡
     hideTip();
     const per = CFG[id].per;
     const c = count(id);
