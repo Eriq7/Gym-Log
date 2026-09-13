@@ -94,11 +94,9 @@
     box-shadow:
       0 1px 0 rgba(255,255,255,.5) inset,
       0 14px 30px -22px rgba(33,28,21,.5);
-    animation:rise .7s both cubic-bezier(.2,.8,.2,1);
   }
-  .card:nth-child(1){ animation-delay:.10s; }
-  .card:nth-child(2){ animation-delay:.18s; }
-  .card:nth-child(3){ animation-delay:.26s; }
+  /* entrance animation only on first paint; --d is set per-index in JS */
+  .enter{ animation:rise .7s var(--d,0s) both cubic-bezier(.2,.8,.2,1); }
 
   .card-top{
     display:flex; align-items:baseline; justify-content:space-between;
@@ -146,7 +144,7 @@
     grid-template-columns:repeat(10,1fr);
     gap:clamp(6px,1.4vw,9px);
   }
-  .grid.week{
+  .grid.big{
     grid-template-columns:repeat(3, clamp(50px,15vw,62px));
     justify-content:start;
     gap:clamp(10px,2.6vw,15px);
@@ -222,11 +220,181 @@
   .tip .lab{ color:var(--ink-soft); margin-right:6px; }
 
   @media (max-width:440px){
-    .grid:not(.week){ grid-template-columns:repeat(5,1fr); }
+    .grid:not(.big){ grid-template-columns:repeat(5,1fr); }
   }
   @media (prefers-reduced-motion:reduce){
     *{ animation-duration:.001s !important; }
   }
+  /* ---------- card edit affordance ---------- */
+  .top-right{ display:flex; align-items:baseline; gap:8px; flex:none; }
+  .edit-btn{
+    -webkit-appearance:none; appearance:none;
+    border:none; background:transparent; cursor:pointer;
+    color:var(--ink-soft);
+    width:30px; height:30px; padding:0; border-radius:50%;
+    align-self:center; flex:none;
+    display:flex; align-items:center; justify-content:center;
+    opacity:.5;
+    transition:opacity .18s ease, background .18s ease, color .18s ease;
+  }
+  .edit-btn svg{ fill:currentColor; display:block; }
+  .edit-btn:hover{ opacity:1; background:rgba(33,28,21,.07); color:var(--ink); }
+  .edit-btn:active{ background:rgba(33,28,21,.14); }
+  .edit-btn:focus-visible{ outline:2px solid var(--hanko); outline-offset:1px; opacity:1; }
+
+  /* ---------- add-action ghost card ---------- */
+  .add-card{
+    -webkit-appearance:none; appearance:none; cursor:pointer;
+    width:100%;
+    font-family:var(--font-cjk); font-size:15px; letter-spacing:.14em;
+    color:var(--ink-soft);
+    background:transparent;
+    border:1.5px dashed var(--ink-line);
+    border-radius:14px;
+    padding:22px 20px;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    transition:border-color .2s ease, color .2s ease, background .2s ease, transform .14s ease;
+  }
+  .add-card:hover{ border-color:rgba(33,28,21,.32); color:var(--ink); background:rgba(243,236,220,.55); }
+  .add-card:active{ transform:scale(.99); }
+  .add-card:focus-visible{ outline:2px solid var(--hanko); outline-offset:2px; }
+  .add-card .plus{ font-family:var(--font-num); font-size:19px; line-height:1; }
+
+  .empty-note{
+    text-align:center; margin:6px 0 0;
+    font-family:var(--font-mono); font-size:12px;
+    letter-spacing:.06em; color:var(--ink-soft);
+  }
+
+  /* ---------- sheet (add / edit / confirm) ---------- */
+  body.locked{ overflow:hidden; }
+
+  .sheet-backdrop{
+    position:fixed; inset:0; z-index:40;
+    background:rgba(33,28,21,.44);
+    -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
+    display:flex; align-items:center; justify-content:center;
+    padding:20px;
+    animation:fade .16s ease both;
+  }
+  .sheet-backdrop[hidden]{ display:none; }
+
+  .sheet{
+    width:100%; max-width:420px;
+    max-height:calc(100vh - 40px); overflow-y:auto;
+    background:var(--paper-card);
+    border:1px solid var(--ink-line);
+    border-radius:16px;
+    padding:clamp(20px,5vw,26px);
+    box-shadow:0 30px 60px -28px rgba(33,28,21,.8);
+    animation:popin .22s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .sheet-title{
+    font-family:var(--font-cjk); font-weight:600;
+    font-size:19px; letter-spacing:.12em;
+    margin:0 0 20px;
+  }
+
+  .field{ display:flex; align-items:center; gap:14px; margin-bottom:13px; }
+  .lbl{
+    font-family:var(--font-mono); font-size:12px; letter-spacing:.08em;
+    color:var(--ink-soft); width:50px; flex:none;
+  }
+  .inp{
+    flex:1; min-width:0;
+    font-family:var(--font-cjk); font-size:15px; color:var(--ink);
+    background:rgba(255,255,255,.45);
+    border:1px solid var(--ink-line); border-radius:8px;
+    padding:9px 12px; outline:none;
+    transition:border-color .18s ease, box-shadow .18s ease;
+  }
+  .inp::placeholder{ color:rgba(107,97,83,.55); }
+  .inp:focus{ border-color:rgba(33,28,21,.4); box-shadow:0 0 0 3px rgba(33,28,21,.07); }
+  .inp.bad{ border-color:var(--hanko); box-shadow:0 0 0 3px rgba(194,75,51,.15); }
+
+  .seg{ display:flex; border:1px solid var(--ink-line); border-radius:8px; overflow:hidden; }
+  .seg button{
+    -webkit-appearance:none; appearance:none; border:none; cursor:pointer;
+    font-family:var(--font-cjk); font-size:14px; letter-spacing:.08em;
+    padding:9px 20px; background:rgba(255,255,255,.35); color:var(--ink-soft);
+    transition:background .18s ease, color .18s ease;
+  }
+  .seg button + button{ border-left:1px solid var(--ink-line); }
+  .seg button:hover{ background:rgba(255,255,255,.7); }
+  .seg button.on{ background:var(--ink); color:var(--paper-card); }
+
+  .stepper{ display:flex; align-items:center; border:1px solid var(--ink-line); border-radius:8px; overflow:hidden; }
+  .stepper button{
+    -webkit-appearance:none; appearance:none; border:none; cursor:pointer;
+    width:38px; height:38px; padding:0;
+    font-size:17px; line-height:1; color:var(--ink);
+    background:rgba(255,255,255,.35);
+    transition:background .16s ease;
+  }
+  .stepper button:hover{ background:rgba(255,255,255,.75); }
+  .stepper button:active{ background:rgba(33,28,21,.1); }
+  .num{
+    width:58px; height:38px; padding:0; text-align:center;
+    font-family:var(--font-num); font-size:18px; font-variant-numeric:tabular-nums;
+    color:var(--ink); background:transparent; outline:none;
+    border:none; border-left:1px solid var(--ink-line); border-right:1px solid var(--ink-line);
+    -moz-appearance:textfield;
+  }
+  .num::-webkit-outer-spin-button,
+  .num::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+
+  .hint{
+    font-family:var(--font-mono); font-size:11.5px; line-height:1.65;
+    letter-spacing:.03em; color:var(--ink-soft);
+    margin:16px 0 0;
+  }
+  .warn{
+    margin:11px 0 0; padding:10px 12px;
+    border:1px solid rgba(194,75,51,.34); border-radius:8px;
+    background:rgba(194,75,51,.07);
+    font-size:12.5px; line-height:1.65; letter-spacing:.02em; color:var(--hanko);
+  }
+  .warn[hidden]{ display:none; }
+  .c-body{ margin:0; font-size:14px; line-height:1.7; color:var(--ink-soft); }
+  .c-body b{ color:var(--ink); font-weight:500; }
+
+  .sheet-actions{ display:flex; align-items:center; gap:9px; margin-top:22px; }
+  .sheet-actions .spacer{ flex:1; }
+  .btn{
+    -webkit-appearance:none; appearance:none; cursor:pointer;
+    font-family:var(--font-cjk); font-size:14px; letter-spacing:.08em;
+    padding:9px 16px; border-radius:8px;
+    border:1px solid var(--ink-line);
+    background:rgba(255,255,255,.4); color:var(--ink);
+    transition:background .16s ease, border-color .16s ease, transform .12s ease;
+  }
+  .btn:hover{ background:rgba(255,255,255,.8); border-color:rgba(33,28,21,.3); }
+  .btn:active{ transform:scale(.96); }
+  .btn:focus-visible{ outline:2px solid var(--hanko); outline-offset:2px; }
+  .btn[hidden]{ display:none; }
+  .btn-primary{ background:var(--ink); border-color:var(--ink); color:var(--paper-card); }
+  .btn-primary:hover{ background:#332c22; border-color:#332c22; }
+  .btn-danger{
+    background:transparent; border-color:transparent;
+    color:var(--hanko); margin-left:-16px;
+  }
+  .btn-danger:hover{ background:rgba(194,75,51,.1); border-color:rgba(194,75,51,.3); }
+  .btn-danger-solid{ background:var(--hanko); border-color:var(--hanko); color:#F7F1E3; }
+  .btn-danger-solid:hover{ background:#B24129; border-color:#B24129; }
+
+  @media (max-width:520px){
+    .sheet-backdrop{ align-items:flex-end; padding:0; }
+    .sheet{
+      max-width:none; max-height:calc(100vh - 24px);
+      border-radius:16px 16px 0 0; border-bottom:none;
+      padding-bottom:calc(22px + env(safe-area-inset-bottom));
+      animation:slideup .24s cubic-bezier(.2,.8,.2,1) both;
+    }
+  }
+
+  @keyframes fade{ from{ opacity:0; } to{ opacity:1; } }
+  @keyframes popin{ from{ opacity:0; transform:scale(.94) translateY(8px); } to{ opacity:1; transform:none; } }
+  @keyframes slideup{ from{ transform:translateY(100%); } to{ transform:none; } }
 </style>
 </head>
 <body>
@@ -240,24 +408,84 @@
     <div id="sections"></div>
 
     <p class="foot">
-      点空格打卡　·　双击黑格 <span class="k">撤销</span>　·　长按看日期　·　胸背满 20 进下一轮，肩腹满 3 进下一周
+      点空格打卡　·　双击黑格 <span class="k">撤销</span>　·　长按看日期　·　点满自动进下一轮
     </p>
+  </div>
+
+  <div class="sheet-backdrop" id="backdrop" hidden>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <h2 class="sheet-title" id="sheet-title">编辑动作</h2>
+
+      <label class="field">
+        <span class="lbl">名称</span>
+        <input class="inp" id="f-name" type="text" maxlength="10" placeholder="例如 腿、小臂" autocomplete="off">
+      </label>
+      <label class="field">
+        <span class="lbl">备注</span>
+        <input class="inp" id="f-note" type="text" maxlength="12" placeholder="选填，如 侧平举" autocomplete="off">
+      </label>
+
+      <div class="field">
+        <span class="lbl">周期</span>
+        <div class="seg" id="f-mode">
+          <button type="button" data-mode="week">每周</button>
+          <button type="button" data-mode="count">累计</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="lbl">卡片数</span>
+        <div class="stepper">
+          <button type="button" id="f-minus" aria-label="减少一张">−</button>
+          <input class="num" id="f-per" type="number" inputmode="numeric" min="1" max="50" aria-label="卡片数">
+          <button type="button" id="f-plus" aria-label="增加一张">＋</button>
+        </div>
+      </div>
+
+      <p class="hint" id="f-hint"></p>
+      <p class="warn" id="f-warn" hidden></p>
+
+      <div class="sheet-actions">
+        <button type="button" class="btn btn-danger" id="f-del">删除动作</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="f-cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="f-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet-backdrop" id="confirm-backdrop" hidden>
+    <div class="sheet sheet-sm" role="alertdialog" aria-modal="true" aria-labelledby="c-title">
+      <h2 class="sheet-title" id="c-title">删除动作？</h2>
+      <p class="c-body" id="c-body"></p>
+      <div class="sheet-actions">
+        <span class="spacer"></span>
+        <button type="button" class="btn" id="c-cancel">取消</button>
+        <button type="button" class="btn btn-danger-solid" id="c-ok">删除</button>
+      </div>
+    </div>
   </div>
 
   <div class="tip" id="tip"></div>
 
 <script>
 (function(){
-  const SECTIONS = [
-    { id:'chest',    name:'胸',   per:20, mode:'count', unit:'次' },
-    { id:'back',     name:'背',   per:20, mode:'count', unit:'次' },
-    { id:'shoulder', name:'肩膀', note:'侧平举', per:3, mode:'week', unit:'周' },
-    { id:'abs',      name:'腹肌', per:3,  mode:'week',  unit:'周' }
-  ];
-  const CFG = {}; SECTIONS.forEach(s=>{ CFG[s.id]=s; });
+  /* ---------- config ---------- */
   const KEY = 'fitness_stamp_v1';
+  const MIN_PER = 1, MAX_PER = 50;
+  const BIG_GRID_MAX = 7;          // ≤7 张 → 3 列大格子；再多 → 10 列小格子
+
+  // Only ever read on a browser's first visit: from then on the action list
+  // lives in state.sections and is fully editable from the UI.
+  const DEFAULT_SECTIONS = [
+    { id:'chest',    name:'胸',   per:20, mode:'count' },
+    { id:'back',     name:'背',   per:20, mode:'count' },
+    { id:'shoulder', name:'肩膀', note:'侧平举', per:3, mode:'week' },
+    { id:'abs',      name:'腹肌', per:3,  mode:'week' }
+  ];
+
   const timers = {};
-  const refs = {};
+  let refs = {};
+  let firstPaint = true;
 
   /* ---------- state ---------- */
   function pad(n){ return String(n).padStart(2,'0'); }
@@ -269,14 +497,16 @@
     try{ const raw=localStorage.getItem(KEY); if(raw) return JSON.parse(raw); }catch(e){}
     return null;
   }
-  // state.logs[id] = array of ISO dates, one per tap. count === logs[id].length
-  let state = load();
-  if(!state) state = { startDate: todayISO(), logs:{} };
+  // state.logs[id]  = array of ISO dates, one per tap. count === logs[id].length
+  // state.sections  = the action list itself {id, name, note?, per, mode}
+  let state = load() || {};
   if(!state.startDate) state.startDate = todayISO();
   if(!state.logs) state.logs = {};
+  // v1 hard-coded the action list — lift it into state so it becomes editable
+  if(!Array.isArray(state.sections)) state.sections = DEFAULT_SECTIONS.map(s=>Object.assign({},s));
   // migrate old numeric {counts:{id:N}} shape into dated logs
   if(state.counts){
-    SECTIONS.forEach(s=>{
+    state.sections.forEach(s=>{
       if(!Array.isArray(state.logs[s.id])){
         const n = (typeof state.counts[s.id]==='number') ? state.counts[s.id] : 0;
         state.logs[s.id] = new Array(n).fill(state.startDate);
@@ -284,19 +514,31 @@
     });
     delete state.counts;
   }
-  SECTIONS.forEach(s=>{ if(!Array.isArray(state.logs[s.id])) state.logs[s.id]=[]; });
+  state.sections.forEach(s=>{ if(!Array.isArray(state.logs[s.id])) state.logs[s.id]=[]; });
 
   function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
-  function count(id){ return state.logs[id].length; }
+  save();
+
+  function find(id){ for(let i=0;i<state.sections.length;i++){ if(state.sections[i].id===id) return state.sections[i]; } return null; }
+  function count(id){ const l=state.logs[id]; return l ? l.length : 0; }
+  function unitOf(mode){ return mode==='week' ? '周' : '次'; }
+  // the big number on the card — completed weeks, or cumulative taps
+  function bigNum(c, per, mode){ return mode==='week' ? Math.floor(c/per) : c; }
+  function filledInCycle(c, per){ return c===0 ? 0 : ((c-1)%per)+1; }
+  function roundNo(c, per){ return c===0 ? 1 : Math.floor((c-1)/per)+1; }
+
   // date on which the cell at grid-index i was turned black (null if empty)
   function cellDate(id,i){
-    const per = CFG[id].per, c = count(id), f = filledInCycle(c, per);
+    const s = find(id); if(!s) return null;
+    const per = s.per, c = count(id), f = filledInCycle(c, per);
     if(i>=f) return null;
     return state.logs[id][(roundNo(c,per)-1)*per + i] || state.startDate;
   }
-
-  function filledInCycle(c, per){ return c===0 ? 0 : ((c-1)%per)+1; }
-  function roundNo(c, per){ return c===0 ? 1 : Math.floor((c-1)/per)+1; }
+  function newId(){
+    let id;
+    do{ id = 'a'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }while(find(id));
+    return id;
+  }
 
   /* ---------- tooltip ---------- */
   const tip = document.getElementById('tip');
@@ -365,28 +607,48 @@
   document.getElementById('start-date').textContent = fmtDate(state.startDate);
 
   function el(tag, cls, txt){ const e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e; }
+  function enter(node, index){
+    if(!firstPaint) return node;                       // edits redraw without re-animating
+    node.classList.add('enter');
+    node.style.setProperty('--d', (0.10 + index*0.08).toFixed(2)+'s');
+    return node;
+  }
 
   const host = document.getElementById('sections');
-  SECTIONS.forEach(s=>{
-    const card = el('div','card'); card.dataset.id=s.id;
-    if(s.mode==='week') card.classList.add('is-week');
+  const DOTS = '<svg width="16" height="4" viewBox="0 0 16 4" aria-hidden="true">'+
+               '<circle cx="2" cy="2" r="1.7"/><circle cx="8" cy="2" r="1.7"/><circle cx="14" cy="2" r="1.7"/></svg>';
 
-    const top  = el('div','card-top');
+  function buildCard(s, index){
+    const card = el('div','card'); card.dataset.id = s.id;
+    if(s.mode==='week') card.classList.add('is-week');
+    enter(card, index);
+
+    const top = el('div','card-top');
     const nameWrap = el('div','name-wrap');
     nameWrap.appendChild(el('span','name', s.name));
     if(s.note) nameWrap.appendChild(el('span','note', s.note));
     top.appendChild(nameWrap);
 
+    const right = el('div','top-right');
     const countBox = el('div','count');
     const n = el('span','n','0');
     countBox.appendChild(n);
-    countBox.appendChild(el('span','u', s.unit));
-    top.appendChild(countBox);
+    countBox.appendChild(el('span','u', unitOf(s.mode)));
+    right.appendChild(countBox);
+
+    const edit = el('button','edit-btn');
+    edit.type = 'button';
+    edit.innerHTML = DOTS;
+    edit.setAttribute('aria-label', '编辑 '+s.name);
+    edit.addEventListener('click', ()=>openSheet(s.id));
+    right.appendChild(edit);
+    top.appendChild(right);
     card.appendChild(top);
 
     const meta = el('p','meta'); card.appendChild(meta);
 
-    const grid = el('div','grid'); if(s.mode==='week') grid.classList.add('week');
+    const grid = el('div','grid');
+    if(s.per <= BIG_GRID_MAX) grid.classList.add('big');
     const cells = [];
     for(let i=0;i<s.per;i++){
       const cell = el('button','cell');
@@ -403,21 +665,45 @@
     }
     card.appendChild(grid);
 
-    host.appendChild(card);
     refs[s.id] = { card, countEl:n, metaEl:meta, cells };
-  });
+    return card;
+  }
+
+  function buildAddCard(index){
+    const b = el('button','add-card');
+    b.type = 'button';
+    b.innerHTML = '<span class="plus">＋</span> 新增动作';
+    enter(b, index);
+    b.addEventListener('click', ()=>openSheet(null));
+    return b;
+  }
+
+  function renderAll(){
+    Object.keys(timers).forEach(k=>{ clearTimeout(timers[k]); delete timers[k]; });
+    clearTimeout(lpTimer); clearTimeout(lpHideTimer);
+    hideTip();
+
+    host.innerHTML = '';
+    refs = {};
+    state.sections.forEach((s,i)=> host.appendChild(buildCard(s,i)) );
+    if(!state.sections.length) host.appendChild(el('p','empty-note','还没有任何动作 · 从下面新建一个'));
+    host.appendChild(buildAddCard(state.sections.length));
+    state.sections.forEach(s=>render(s.id));
+    firstPaint = false;
+  }
 
   /* ---------- render ---------- */
   function render(id){
-    const cfg = CFG[id], per = cfg.per;
+    const s = find(id); if(!s) return;
+    const r = refs[id]; if(!r) return;
+    const per = s.per;
     const c = count(id);
     const f = filledInCycle(c, per);
-    const r = refs[id];
     r.cells.forEach((cell,i)=> cell.classList.toggle('filled', i<f));
     const full = (f===per && c>0);
     r.card.classList.toggle('full', full);
-    if(cfg.mode==='week'){
-      r.countEl.textContent = Math.floor(c/per);          // 已完成的周数
+    if(s.mode==='week'){
+      r.countEl.textContent = bigNum(c, per, 'week');     // 已完成的周数
       const req = '<span class="req">每周 '+per+' 次</span>';
       r.metaEl.innerHTML = full
         ? req+'本周达标 ✓ · 再点开启下一周'
@@ -453,7 +739,8 @@
 
   /* ---------- actions ---------- */
   function increment(id){
-    const per = CFG[id].per;
+    const s = find(id); if(!s) return;
+    const per = s.per;
     const c0 = count(id);
     const before = filledInCycle(c0, per);
     const wasFull = (before===per && c0>0);
@@ -469,7 +756,7 @@
     bump(refs[id].countEl);
   }
   function undo(id){
-    if(count(id)<=0) return;
+    if(!find(id) || count(id)<=0) return;
     state.logs[id].pop(); save();
     render(id);
     bump(refs[id].countEl);
@@ -479,7 +766,8 @@
   function onClick(id,i){
     if(Date.now() - lpSuppressAt < 500){ return; }   // just finished a long-press inspect → don't 打卡
     hideTip();
-    const per = CFG[id].per;
+    const s = find(id); if(!s) return;
+    const per = s.per;
     const c = count(id);
     const f = filledInCycle(c, per);
     const full = (f===per && c>0);
@@ -494,7 +782,8 @@
   }
   function onDbl(id,i){
     hideTip();
-    const per = CFG[id].per;
+    const s = find(id); if(!s) return;
+    const per = s.per;
     const c = count(id);
     const f = filledInCycle(c, per);
     const full = (f===per && c>0);
@@ -502,7 +791,151 @@
     if(i<f && c>0) undo(id);                 // double-clicked a filled slot → undo one
   }
 
-  SECTIONS.forEach(s=>render(s.id));
+  /* ---------- add / edit sheet ---------- */
+  const bd      = document.getElementById('backdrop');
+  const fTitle  = document.getElementById('sheet-title');
+  const fName   = document.getElementById('f-name');
+  const fNote   = document.getElementById('f-note');
+  const fPer    = document.getElementById('f-per');
+  const fHint   = document.getElementById('f-hint');
+  const fWarn   = document.getElementById('f-warn');
+  const fDel    = document.getElementById('f-del');
+  const modeBtns = Array.prototype.slice.call(document.querySelectorAll('#f-mode button'));
+
+  let editing = null;        // section id being edited, or null when adding
+  let draftMode = 'week';
+
+  function clampPer(v){
+    v = parseInt(v,10);
+    if(!isFinite(v)) v = MIN_PER;
+    return Math.min(MAX_PER, Math.max(MIN_PER, v));
+  }
+  function setMode(m){
+    draftMode = m;
+    modeBtns.forEach(b=> b.classList.toggle('on', b.dataset.mode===m) );
+    preview();
+  }
+  // Card counts are derived, never stored — so changing `per` re-chunks the whole
+  // log. Warn up front when that will move the big number.
+  function preview(){
+    const per = clampPer(fPer.value);
+    fHint.textContent = draftMode==='week'
+      ? '打满 '+per+' 张算一周达标，大数字显示已完成周数。'
+      : '每 '+per+' 张算一轮，大数字显示累计总次数。';
+    let msg = null;
+    if(editing){
+      const s = find(editing), c = count(editing);
+      if(s && c>0 && (per!==s.per || draftMode!==s.mode)){
+        const b = bigNum(c, s.per, s.mode) + ' ' + unitOf(s.mode);
+        const a = bigNum(c, per, draftMode) + ' ' + unitOf(draftMode);
+        if(a!==b) msg = c+' 次打卡记录会按新设置重新分组，大数字 '+b+' → '+a+'。记录本身一条都不会丢。';
+      }
+    }
+    fWarn.textContent = msg || '';
+    fWarn.hidden = !msg;
+  }
+
+  function openSheet(id){
+    const s = id ? find(id) : null;
+    editing = s ? id : null;
+    fTitle.textContent = s ? '编辑动作' : '新增动作';
+    fName.value = s ? s.name : '';
+    fNote.value = (s && s.note) ? s.note : '';
+    fPer.value  = s ? s.per : 3;
+    fName.classList.remove('bad');
+    fDel.hidden = !s;
+    setMode(s ? s.mode : 'week');
+    hideTip();
+    bd.hidden = false;
+    document.body.classList.add('locked');
+    // don't yank the on-screen keyboard up on touch devices
+    if(window.matchMedia && window.matchMedia('(hover:hover)').matches) setTimeout(()=>fName.focus(), 40);
+  }
+  function closeSheet(){
+    bd.hidden = true;
+    editing = null;
+    if(cbd.hidden) document.body.classList.remove('locked');
+  }
+
+  function saveSheet(){
+    const name = fName.value.trim();
+    if(!name){ fName.classList.add('bad'); fName.focus(); return; }
+    const per  = clampPer(fPer.value);
+    const note = fNote.value.trim();
+    if(editing){
+      const s = find(editing);
+      if(s){
+        s.name = name; s.per = per; s.mode = draftMode;
+        if(note) s.note = note; else delete s.note;
+      }
+    }else{
+      const id = newId();
+      const s = { id, name, per, mode:draftMode };
+      if(note) s.note = note;
+      state.sections.push(s);
+      state.logs[id] = [];
+    }
+    save();
+    closeSheet();
+    renderAll();
+  }
+
+  /* ---------- delete confirm ---------- */
+  const cbd    = document.getElementById('confirm-backdrop');
+  const cTitle = document.getElementById('c-title');
+  const cBody  = document.getElementById('c-body');
+  let pendingDelete = null;
+
+  function askDelete(){
+    const s = editing ? find(editing) : null;
+    if(!s) return;
+    pendingDelete = editing;
+    cTitle.textContent = '删除「'+s.name+'」？';
+    cBody.innerHTML = '这个动作和它的 <b>'+count(s.id)+'</b> 次打卡记录会被永久清除，无法恢复。';
+    cbd.hidden = false;
+    document.body.classList.add('locked');
+  }
+  function closeConfirm(){
+    cbd.hidden = true;
+    pendingDelete = null;
+    if(bd.hidden) document.body.classList.remove('locked');
+  }
+  function doDelete(){
+    const id = pendingDelete;
+    closeConfirm();
+    if(!id) return;
+    state.sections = state.sections.filter(s=>s.id!==id);
+    delete state.logs[id];
+    save();
+    closeSheet();
+    renderAll();
+  }
+
+  /* ---------- sheet wiring ---------- */
+  modeBtns.forEach(b=> b.addEventListener('click', ()=>setMode(b.dataset.mode)) );
+  document.getElementById('f-minus').addEventListener('click', ()=>{ fPer.value = clampPer(clampPer(fPer.value)-1); preview(); });
+  document.getElementById('f-plus') .addEventListener('click', ()=>{ fPer.value = clampPer(clampPer(fPer.value)+1); preview(); });
+  fPer.addEventListener('input', preview);
+  fPer.addEventListener('blur',  ()=>{ fPer.value = clampPer(fPer.value); preview(); });
+  fName.addEventListener('input', ()=> fName.classList.remove('bad'));
+  [fName, fNote].forEach(inp=> inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); saveSheet(); } }) );
+
+  document.getElementById('f-cancel').addEventListener('click', closeSheet);
+  document.getElementById('f-save')  .addEventListener('click', saveSheet);
+  fDel.addEventListener('click', askDelete);
+  bd.addEventListener('click', e=>{ if(e.target===bd) closeSheet(); });
+
+  document.getElementById('c-cancel').addEventListener('click', closeConfirm);
+  document.getElementById('c-ok')    .addEventListener('click', doDelete);
+  cbd.addEventListener('click', e=>{ if(e.target===cbd) closeConfirm(); });
+
+  document.addEventListener('keydown', e=>{
+    if(e.key !== 'Escape') return;
+    if(!cbd.hidden) closeConfirm();
+    else if(!bd.hidden) closeSheet();
+  });
+
+  renderAll();
 })();
 </script>
 </body>
