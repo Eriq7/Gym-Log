@@ -218,6 +218,74 @@
   }
   .tip.show{ opacity:1; }
   .tip .lab{ color:var(--ink-soft); margin-right:6px; }
+  .tip .sw{ display:inline-block; width:8px; height:8px; border-radius:2px; margin:0 4px 0 8px; vertical-align:0; }
+
+  /* ---------- heatmap ---------- */
+  :root{
+    --c-chest:    #C24B33;   /* 印章红 */
+    --c-back:     #2F4A6B;   /* 墨蓝 */
+    --c-shoulder: #6E7A36;   /* 橄榄绿 */
+    --hm-cell:    18px;
+    --hm-gap:     4px;
+  }
+  .heat{
+    background:var(--paper-card);
+    border:1px solid var(--ink-line);
+    border-radius:14px;
+    padding:16px clamp(14px,3.5vw,24px) 14px;
+    margin-bottom:clamp(16px,3vw,22px);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.5) inset,
+      0 14px 30px -22px rgba(33,28,21,.5);
+    animation:rise .7s .06s both cubic-bezier(.2,.8,.2,1);
+  }
+  .heat-head{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    margin-bottom:10px;
+    font-family:var(--font-mono); font-size:11px; letter-spacing:.12em; color:var(--ink-soft);
+  }
+  .heat-legend{ display:flex; gap:12px; letter-spacing:.06em; }
+  .heat-legend span{ display:inline-flex; align-items:center; gap:5px; color:var(--ink); }
+  .heat-legend i{ width:10px; height:10px; border-radius:2.5px; display:block; }
+  .heat-body{ display:flex; gap:6px; }
+  .heat-days{
+    flex:none; padding-top:18px;
+    display:grid; grid-template-rows:repeat(7,var(--hm-cell)); row-gap:var(--hm-gap);
+    font-family:var(--font-mono); font-size:10px; color:var(--ink-soft);
+  }
+  .heat-days span{ line-height:var(--hm-cell); }
+  .heat-scroll{
+    flex:1; min-width:0; overflow-x:auto; overflow-y:hidden;
+    scrollbar-width:none; -webkit-overflow-scrolling:touch;
+    padding:0 2px 3px;
+  }
+  .heat-scroll::-webkit-scrollbar{ display:none; }
+  .heat-months{ position:relative; height:18px; }
+  .heat-months span{
+    position:absolute; top:0; white-space:nowrap;
+    font-family:var(--font-mono); font-size:10px; letter-spacing:.04em; color:var(--ink-soft);
+  }
+  .heat-grid{
+    display:grid; grid-auto-flow:column;
+    grid-template-rows:repeat(7,var(--hm-cell));
+    grid-auto-columns:var(--hm-cell);
+    gap:var(--hm-gap);
+    width:max-content; padding:2px 0;
+  }
+  .hm{
+    -webkit-appearance:none; appearance:none; border:0; padding:0; margin:0;
+    width:var(--hm-cell); height:var(--hm-cell); border-radius:4px;
+    background:var(--ink-slot); cursor:default;
+  }
+  .hm.future{ background:transparent; border:1px dashed var(--ink-line); }
+
+  /* ---------- export / import ---------- */
+  .data-io{
+    margin-top:14px; display:flex; justify-content:center; gap:10px;
+    animation:rise .7s .38s both cubic-bezier(.2,.8,.2,1);
+  }
+  .btn-sm{ font-size:12px; padding:6px 13px; letter-spacing:.1em; }
+  .hm.today{ box-shadow:0 0 0 2px var(--paper-card), 0 0 0 3.5px var(--ink); }
 
   @media (max-width:440px){
     .grid:not(.big){ grid-template-columns:repeat(5,1fr); }
@@ -405,11 +473,32 @@
       <div class="started"><span class="dot"></span>开始于 <b id="start-date">—</b></div>
     </header>
 
+    <section class="heat" aria-label="近 6 个月训练热力图">
+      <div class="heat-head">
+        <span>近 6 个月</span>
+        <span class="heat-legend" id="heat-legend"></span>
+      </div>
+      <div class="heat-body">
+        <div class="heat-days" aria-hidden="true">
+          <span>一</span><span></span><span>三</span><span></span><span>五</span><span></span><span></span>
+        </div>
+        <div class="heat-scroll" id="heat-scroll">
+          <div class="heat-months" id="heat-months"></div>
+          <div class="heat-grid" id="heat-grid"></div>
+        </div>
+      </div>
+    </section>
+
     <div id="sections"></div>
 
     <p class="foot">
       点空格打卡　·　双击黑格 <span class="k">撤销</span>　·　长按看日期　·　点满自动进下一轮
     </p>
+    <div class="data-io">
+      <button type="button" class="btn btn-sm" id="io-export">导出数据</button>
+      <button type="button" class="btn btn-sm" id="io-import">导入数据</button>
+      <input type="file" id="io-file" accept=".json,application/json" hidden>
+    </div>
   </div>
 
   <div class="sheet-backdrop" id="backdrop" hidden>
@@ -489,7 +578,8 @@
 
   /* ---------- state ---------- */
   function pad(n){ return String(n).padStart(2,'0'); }
-  function todayISO(){ const d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function isoOf(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  function todayISO(){ return isoOf(new Date()); }
   function fmtDate(iso){ const p=iso.split('-').map(Number); return p[0]+' 年 '+p[1]+' 月 '+p[2]+' 日'; }
   function fmtMD(iso){ const p=iso.split('-').map(Number); return p[1]+' 月 '+p[2]+' 日'; }
 
@@ -542,8 +632,9 @@
 
   /* ---------- tooltip ---------- */
   const tip = document.getElementById('tip');
-  function showTip(cell, iso){
-    tip.innerHTML = '<span class="lab">点亮于</span>' + fmtMD(iso);
+  function showTip(cell, iso){ showTipHTML(cell, '<span class="lab">点亮于</span>' + fmtMD(iso)); }
+  function showTipHTML(cell, html){
+    tip.innerHTML = html;
     const r = cell.getBoundingClientRect();
     tip.style.left = (r.left + r.width/2) + 'px';
     tip.style.top  = (r.top - 8) + 'px';
@@ -689,6 +780,7 @@
     if(!state.sections.length) host.appendChild(el('p','empty-note','还没有任何动作 · 从下面新建一个'));
     host.appendChild(buildAddCard(state.sections.length));
     state.sections.forEach(s=>render(s.id));
+    paintHeat();                                       // legend follows renames / deletes
     firstPaint = false;
   }
 
@@ -747,6 +839,7 @@
     state.logs[id].push(todayISO()); save();
     const f = filledInCycle(count(id), per);
     render(id);
+    paintHeat();
     if(wasFull){
       popCell(refs[id].cells[0]);          // wrapped into a fresh round / week
     }else{
@@ -759,6 +852,7 @@
     if(!find(id) || count(id)<=0) return;
     state.logs[id].pop(); save();
     render(id);
+    paintHeat();
     bump(refs[id].countEl);
   }
 
@@ -884,31 +978,45 @@
   const cbd    = document.getElementById('confirm-backdrop');
   const cTitle = document.getElementById('c-title');
   const cBody  = document.getElementById('c-body');
-  let pendingDelete = null;
+  const cOk    = document.getElementById('c-ok');
+  const cCancel = document.getElementById('c-cancel');
+  let onConfirm = null;
 
-  function askDelete(){
-    const s = editing ? find(editing) : null;
-    if(!s) return;
-    pendingDelete = editing;
-    cTitle.textContent = '删除「'+s.name+'」？';
-    cBody.innerHTML = '这个动作和它的 <b>'+count(s.id)+'</b> 次打卡记录会被永久清除，无法恢复。';
+  // okText/fn null → plain notice with a single 「知道了」 button
+  function askConfirm(title, bodyHTML, okText, fn){
+    onConfirm = fn;
+    cTitle.textContent = title;
+    cBody.innerHTML = bodyHTML;
+    cOk.textContent = okText || '';
+    cOk.hidden = !fn;
+    cCancel.textContent = fn ? '取消' : '知道了';
     cbd.hidden = false;
     document.body.classList.add('locked');
   }
   function closeConfirm(){
     cbd.hidden = true;
-    pendingDelete = null;
+    onConfirm = null;
     if(bd.hidden) document.body.classList.remove('locked');
   }
-  function doDelete(){
-    const id = pendingDelete;
+  function doConfirm(){
+    const fn = onConfirm;
     closeConfirm();
-    if(!id) return;
-    state.sections = state.sections.filter(s=>s.id!==id);
-    delete state.logs[id];
-    save();
-    closeSheet();
-    renderAll();
+    if(fn) fn();
+  }
+
+  function askDelete(){
+    const s = editing ? find(editing) : null;
+    if(!s) return;
+    const id = s.id;
+    askConfirm('删除「'+s.name+'」？',
+      '这个动作和它的 <b>'+count(id)+'</b> 次打卡记录会被永久清除，无法恢复。',
+      '删除', ()=>{
+        state.sections = state.sections.filter(x=>x.id!==id);
+        delete state.logs[id];
+        save();
+        closeSheet();
+        renderAll();
+      });
   }
 
   /* ---------- sheet wiring ---------- */
@@ -925,8 +1033,8 @@
   fDel.addEventListener('click', askDelete);
   bd.addEventListener('click', e=>{ if(e.target===bd) closeSheet(); });
 
-  document.getElementById('c-cancel').addEventListener('click', closeConfirm);
-  document.getElementById('c-ok')    .addEventListener('click', doDelete);
+  cCancel.addEventListener('click', closeConfirm);
+  cOk    .addEventListener('click', doConfirm);
   cbd.addEventListener('click', e=>{ if(e.target===cbd) closeConfirm(); });
 
   document.addEventListener('keydown', e=>{
@@ -935,7 +1043,198 @@
     else if(!bd.hidden) closeSheet();
   });
 
+  /* ---------- heatmap ---------- */
+  // Only these three parts are painted. Matched by section id, so renaming
+  // 「胸」 keeps its colour; deleting it and making a new one does not.
+  const HEAT_PARTS = [
+    { id:'chest',    color:'var(--c-chest)' },
+    { id:'back',     color:'var(--c-back)' },
+    { id:'shoulder', color:'var(--c-shoulder)' }
+  ];
+  const HEAT_MONTHS = 6;
+  const TODAY_AT = 0.75;            // on open, today's column sits at 75% of the visible strip
+  const heatScroll = document.getElementById('heat-scroll');
+  const heatGrid   = document.getElementById('heat-grid');
+  const heatMonths = document.getElementById('heat-months');
+  const heatLegend = document.getElementById('heat-legend');
+  let heatCells = [];               // { cell, iso, parts } for every day up to today
+  let heatKey = '';                 // today|width the grid was laid out for
+  let heatTipTimer = null;
+
+  function cssPx(name){ return parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || 0; }
+  function heatParts(){ return HEAT_PARTS.filter(p=>find(p.id)); }
+
+  // 1 part → solid; 2 → split on the diagonal; 3 → three diagonal bands of equal
+  // area (a corner triangle cut at p along the diagonal covers 2p², so p≈41%).
+  function heatFill(colors){
+    if(colors.length===1) return colors[0];
+    if(colors.length===2) return 'linear-gradient(135deg,'+colors[0]+' 50%,'+colors[1]+' 50%)';
+    if(colors.length===3) return 'linear-gradient(135deg,'+colors[0]+' 41%,'+colors[1]+' 41% 59%,'+colors[2]+' 59%)';
+    return '';
+  }
+
+  function buildHeat(){
+    const now = new Date(); now.setHours(0,0,0,0);
+    const today = isoOf(now);
+    const W = heatScroll.clientWidth;
+    heatKey = today+'|'+W;
+
+    const colW = cssPx('--hm-cell') + cssPx('--hm-gap');
+    const from = new Date(now);
+    from.setMonth(from.getMonth() - HEAT_MONTHS);
+    from.setDate(from.getDate() - (from.getDay()+6)%7);             // back to Monday
+    const pastCols   = Math.floor(Math.round((now-from)/864e5) / 7) + 1;
+    const futureCols = Math.max(2, Math.ceil((1-TODAY_AT)*W / colW));  // room so today can reach 75%
+
+    heatGrid.innerHTML = '';
+    heatMonths.innerHTML = '';
+    heatCells = [];
+    const labels = [];
+    let lastMonth = -1;
+    for(let c=0; c<pastCols+futureCols; c++){
+      for(let r=0; r<7; r++){
+        const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + c*7 + r);
+        const iso = isoOf(d);
+        const cell = el('button','hm');
+        cell.type = 'button';
+        if(r===0 && d.getMonth()!==lastMonth){
+          lastMonth = d.getMonth();
+          labels.push({ c, text:(d.getMonth()+1)+'月' });
+        }
+        if(iso > today){
+          cell.classList.add('future');
+          cell.tabIndex = -1;
+          cell.setAttribute('aria-hidden','true');
+        }else{
+          if(iso===today) cell.classList.add('today');
+          const h = { cell, iso, parts:[] };
+          cell.addEventListener('click', ()=>{
+            showHeatTip(h);
+            clearTimeout(heatTipTimer);
+            heatTipTimer = setTimeout(hideTip, 1600);
+          });
+          cell.addEventListener('mouseenter', ()=>showHeatTip(h));
+          cell.addEventListener('mouseleave', hideTip);
+          heatCells.push(h);
+        }
+        heatGrid.appendChild(cell);
+      }
+    }
+    // the first column's month label would collide with the next one if it's close
+    if(labels.length>1 && labels[1].c - labels[0].c < 3) labels.shift();
+    labels.forEach(l=>{
+      const s = el('span', null, l.text);
+      s.style.left = (l.c*colW)+'px';
+      heatMonths.appendChild(s);
+    });
+
+    paintHeat();
+    heatScroll.scrollLeft = (pastCols-1)*colW + colW/2 - TODAY_AT*W;
+  }
+
+  function paintHeat(){
+    const parts = heatParts();
+    const byDay = {};
+    parts.forEach(p=> (state.logs[p.id]||[]).forEach(iso=>{ (byDay[iso] = byDay[iso] || {})[p.id] = true; }) );
+    heatCells.forEach(h=>{
+      h.parts = parts.filter(p=> byDay[h.iso] && byDay[h.iso][p.id]);
+      h.cell.style.background = heatFill(h.parts.map(p=>p.color));
+      h.cell.setAttribute('aria-label', fmtMD(h.iso)+' '+(h.parts.length ? h.parts.map(p=>find(p.id).name).join(' ') : '未练'));
+    });
+    heatLegend.innerHTML = '';
+    parts.forEach(p=>{
+      const s = el('span');
+      const i = el('i'); i.style.background = p.color;
+      s.appendChild(i);
+      s.appendChild(document.createTextNode(find(p.id).name));
+      heatLegend.appendChild(s);
+    });
+  }
+
+  function showHeatTip(h){
+    let html = fmtMD(h.iso) + (h.iso===todayISO() ? ' · 今天' : '');
+    if(h.parts.length){
+      h.parts.forEach(p=>{
+        html += '<span class="sw" style="background:'+p.color+'"></span>' + esc(find(p.id).name);
+      });
+    }else{
+      html += '<span class="lab" style="margin:0 0 0 8px">未练</span>';
+    }
+    showTipHTML(h.cell, html);
+  }
+
+  heatScroll.addEventListener('scroll', hideTip, {passive:true});
+  // rebuild when the width changes (rotation) or the date rolls over while open
+  let heatResizeTimer = null;
+  function heatMaybeRebuild(){ if(heatKey !== todayISO()+'|'+heatScroll.clientWidth) buildHeat(); }
+  window.addEventListener('resize', ()=>{ clearTimeout(heatResizeTimer); heatResizeTimer = setTimeout(heatMaybeRebuild, 150); });
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) heatMaybeRebuild(); });
+
+  /* ---------- export / import ---------- */
+  const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
+  function esc(t){ return String(t).replace(/[&<>"']/g, c=>'&#'+c.charCodeAt(0)+';'); }
+  function totalLogs(st){ return Object.keys(st.logs).reduce((n,k)=>n+st.logs[k].length, 0); }
+
+  function exportData(){
+    const payload = {
+      app:'gym-log', version:1, exportedAt:new Date().toISOString(),
+      startDate:state.startDate, sections:state.sections, logs:state.logs
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = el('a');
+    a.href = url;
+    a.download = '健身打卡-'+todayISO()+'.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  }
+
+  // Returns a clean state, or throws a user-facing message.
+  function parseImport(text){
+    let d;
+    try{ d = JSON.parse(text); }catch(e){ throw '这不是有效的 JSON 文件。'; }
+    if(!d || !Array.isArray(d.sections) || !d.logs || typeof d.logs!=='object') throw '文件里找不到打卡数据（缺少 sections / logs）。';
+    const sections = [], logs = {};
+    d.sections.forEach(s=>{
+      if(!s || typeof s.id!=='string' || !s.id || logs[s.id]) return;
+      if(typeof s.name!=='string' || !s.name.trim()) return;
+      const o = { id:s.id, name:s.name.trim().slice(0,10), per:clampPer(s.per), mode: s.mode==='count' ? 'count' : 'week' };
+      if(typeof s.note==='string' && s.note.trim()) o.note = s.note.trim().slice(0,12);
+      sections.push(o);
+      const l = d.logs[s.id];
+      logs[s.id] = Array.isArray(l) ? l.filter(x=> typeof x==='string' && ISO_RE.test(x)) : [];
+    });
+    const startDate = (typeof d.startDate==='string' && ISO_RE.test(d.startDate)) ? d.startDate : todayISO();
+    return { startDate, sections, logs };
+  }
+
+  const ioFile = document.getElementById('io-file');
+  document.getElementById('io-export').addEventListener('click', exportData);
+  document.getElementById('io-import').addEventListener('click', ()=>{ ioFile.value = ''; ioFile.click(); });
+  ioFile.addEventListener('change', ()=>{
+    const f = ioFile.files && ioFile.files[0];
+    if(!f) return;
+    const rd = new FileReader();
+    rd.onerror = ()=> askConfirm('导入失败', '读取文件出错。', null, null);
+    rd.onload = ()=>{
+      let next;
+      try{ next = parseImport(String(rd.result)); }
+      catch(msg){ askConfirm('导入失败', esc(typeof msg==='string' ? msg : '读取文件出错。'), null, null); return; }
+      askConfirm('覆盖当前数据？',
+        '将用「'+esc(f.name)+'」里的 <b>'+next.sections.length+'</b> 个动作、<b>'+totalLogs(next)+'</b> 次打卡，'+
+        '替换当前全部数据。当前的 <b>'+totalLogs(state)+'</b> 次打卡会被清除，无法撤销 —— 建议先导出备份。',
+        '覆盖导入', ()=>{
+          state = next;
+          save();
+          document.getElementById('start-date').textContent = fmtDate(state.startDate);
+          renderAll();
+        });
+    };
+    rd.readAsText(f);
+  });
+
   renderAll();
+  buildHeat();
 })();
 </script>
 </body>
