@@ -497,6 +497,7 @@
     <div class="data-io">
       <button type="button" class="btn btn-sm" id="io-export">导出数据</button>
       <button type="button" class="btn btn-sm" id="io-import">导入数据</button>
+      <button type="button" class="btn btn-sm" id="io-copy">复制全部数据</button>
       <input type="file" id="io-file" accept=".json,application/json" hidden>
     </div>
   </div>
@@ -1175,11 +1176,29 @@
   function esc(t){ return String(t).replace(/[&<>"']/g, c=>'&#'+c.charCodeAt(0)+';'); }
   function totalLogs(st){ return Object.keys(st.logs).reduce((n,k)=>n+st.logs[k].length, 0); }
 
-  function exportData(){
-    const payload = {
+  function exportPayload(){
+    return {
       app:'gym-log', version:1, exportedAt:new Date().toISOString(),
       startDate:state.startDate, sections:state.sections, logs:state.logs
     };
+  }
+
+  // For moving to Show Up: the same data as the export, as text on the clipboard to paste there.
+  function copyAll(){
+    const text = JSON.stringify(exportPayload());
+    const sum = state.sections.length+' 个动作、'+totalLogs(state)+' 次打卡';
+    const manual = ()=>{
+      askConfirm('手动复制', '自动复制没成功。长按下面的文字，全选、拷贝（'+sum+'），再到 Show Up 粘贴。<textarea readonly id="copy-fallback" style="width:100%;height:120px;margin-top:10px"></textarea>', null, null);
+      const ta = document.getElementById('copy-fallback');
+      ta.value = text; ta.focus(); ta.select();
+    };
+    const copied = ()=> askConfirm('已复制', '已复制全部数据（'+sum+'）。到 Show Up 首页底部点“导入旧 App 数据”，粘贴。', null, null);
+    if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(copied, manual);
+    else manual();
+  }
+
+  function exportData(){
+    const payload = exportPayload();
     const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
     const url = URL.createObjectURL(blob);
     const a = el('a');
@@ -1210,6 +1229,7 @@
 
   const ioFile = document.getElementById('io-file');
   document.getElementById('io-export').addEventListener('click', exportData);
+  document.getElementById('io-copy').addEventListener('click', copyAll);
   document.getElementById('io-import').addEventListener('click', ()=>{ ioFile.value = ''; ioFile.click(); });
   ioFile.addEventListener('change', ()=>{
     const f = ioFile.files && ioFile.files[0];
